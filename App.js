@@ -1,152 +1,132 @@
-/**
- * Sample React Native App
- * https://github.com/facebook/react-native
- *
- * @format
- * @flow strict-local
- */
-
-import React from 'react';
-import type {Node} from 'react';
-import { Card, ListItem, Button, Icon } from 'react-native-elements'
-import SafeAreaView, { SafeAreaProvider } from 'react-native-safe-area-view';
-
-// implemented without image with header
+import React, {useState} from 'react';
+import 'react-native-gesture-handler';
 import {
-  ScrollView,
-  StatusBar,
+  SafeAreaView,
+  View,
   StyleSheet,
-  View, Text, Image ,
-  useColorScheme,
+  Text,
+  Image
 } from 'react-native';
 
+// Import FBSDK
 import {
-  Colors,
-  DebugInstructions,
-  Header,
-  LearnMoreLinks,
-  ReloadInstructions,
-} from 'react-native/Libraries/NewAppScreen';
+  LoginButton,
+  AccessToken,
+  GraphRequest,
+  GraphRequestManager,
+} from 'react-native-fbsdk-next';
 
-const Section = ({children, title}): Node => {
-  const isDarkMode = useColorScheme() === 'dark';
-  return (
-    <View style={styles.sectionContainer}>
-      <Text
-        style={[
-          styles.sectionTitle,
-          {
-            color: isDarkMode ? Colors.white : Colors.black,
-          },
-        ]}>
-        {title}
-      </Text>
-      <Text
-        style={[
-          styles.sectionDescription,
-          {
-            color: isDarkMode ? Colors.light : Colors.dark,
-          },
-        ]}>
-        {children}
-      </Text>
-    </View>
-  );
-};
+const App = () => {
+  const [userName, setUserName] = useState('');
+  const [token, setToken] = useState('');
+  const [profilePic, setProfilePic] = useState('');
 
-const App: () => Node = () => {
-  const isDarkMode = useColorScheme() === 'dark';
-
-  const backgroundStyle = {
-    backgroundColor: isDarkMode ? Colors.darker : Colors.lighter,
+  const getResponseInfo = (error, result) => {
+    if (error) {
+      //Alert for the Error
+      alert('Error fetching data: ' + error.toString());
+    } else {
+      //response alert
+      console.log(JSON.stringify(result));
+      setUserName('Welcome ' + result.name);
+      setToken('User Token: ' + result.id);
+      setProfilePic(result.picture.data.url);
+    }
   };
-  const users = [
-    {
-      title: '1',
-      text: '1',
-       avatar: require('./images/road.jpg')
-    },
-    {
-      title: '2',
-      text: '1',
-      avatar: require('./images/road.jpg')
-   },
-   {
-    title: '3',
-    text: '1',
-     avatar: require('./images/road.jpg')
-  },
-  {
-    title: '4',
-    text: '1',
-    avatar: require('./images/road.jpg')
- },
- {
-   title: '5',
-   text: '1',
-   avatar: require('./images/road.jpg')
-}
-   ]
-  return (
-    <SafeAreaProvider>
-    <SafeAreaView style={backgroundStyle}>
-      <StatusBar barStyle={isDarkMode ? 'light-content' : 'dark-content'} />
-      <ScrollView
-        contentInsetAdjustmentBehavior="automatic"
-        style={backgroundStyle}>
-        <View
-          style={{
-            backgroundColor: isDarkMode ? Colors.black : Colors.white,
-          }}>
 
-          
-            
-            {
-              users.map((u, i) => {
-              return (
-                <Card>
-                <Card.Title>{u.title}</Card.Title>
-                    <Card.Image key={i} source={u.avatar}
-                    containerStyle={{height: 150}}>
-                      
-                    </Card.Image>
-                    <Text>
-                        {u.text}
-                      </Text>
-                      <Button
-                        icon={<Icon name='code' color='#ffffff' />}
-                        buttonStyle={{borderRadius: 0, marginLeft: 0, marginRight: 0, marginBottom: 0}}
-                        title='VIEW NOW' />
-                    <Card.Divider/>
-                    </Card>
-                    );
-                  })
-              }
-          
-        </View>
-      </ScrollView>
+  const onLogout = () => {
+    //Clear the state after logout
+    setUserName(null);
+    setToken(null);
+    setProfilePic(null);
+  };
+
+  return (
+    <SafeAreaView style={{flex: 1,backgroundColor: '#fff', color: '#1E90FF'}}>
+      <Text style={styles.titleText}>
+        My Feeds
+      </Text>
+      <View style={styles.container}>
+        {profilePic ? (
+          <Image
+            source={{uri: profilePic}}
+            style={styles.imageStyle}
+          />
+        ) : null}
+        <Text style={styles.textStyle}> {userName} </Text>
+        <Text style={styles.textStyle}> {token} </Text>
+        <LoginButton
+         style={styles.fbLogin}
+          readPermissions={['public_profile']}
+          onLoginFinished={(error, result) => {
+            if (error) {
+              alert(error);
+              console.log('Login has error: ' + result.error);
+            } else if (result.isCancelled) {
+              alert('Login is cancelled.');
+            } else {
+              AccessToken.getCurrentAccessToken().then((data) => {
+                console.log(data.accessToken.toString());
+                const processRequest = new GraphRequest(
+                  '/me?fields=name,picture.type(large)',
+                  null,
+                  getResponseInfo,
+                );
+                // Start the graph request.
+                new GraphRequestManager()
+                  .addRequest(processRequest).start();
+              });
+            }
+          }}
+          onLogoutFinished={onLogout}
+        />
+      </View>
     </SafeAreaView>
-    </SafeAreaProvider>
   );
 };
-
-const styles = StyleSheet.create({
-  sectionContainer: {
-    marginTop: 32,
-    paddingHorizontal: 24,
-  },
-  sectionTitle: {
-    fontSize: 24,
-    fontWeight: '600',
-  },
-  sectionDescription: {
-    marginTop: 8,
-    fontSize: 18,
-    fontWeight: '400',
-  },
-  highlight: {
-    fontWeight: '700',
-  },
-});
 
 export default App;
+
+const styles = StyleSheet.create({
+  container: {
+    flex: 1,
+    backgroundColor: '#fff',
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  fbLogin: {
+    padding: 20,
+    width: 250,
+    height: 40,
+    margin:10
+  },
+  textStyle: {
+    fontSize: 20,
+    color: '#000',
+    textAlign: 'center',
+    padding: 10,
+    color: '#1E90FF'
+  },
+  imageStyle: {
+    width: 200,
+    height: 300,
+    resizeMode: 'contain',
+  },
+  titleText: {
+    fontSize: 20,
+    fontWeight: 'bold',
+    textAlign: 'center',
+    padding: 20,
+    color: '#1E90FF'
+  },
+  footerHeading: {
+    fontSize: 18,
+    textAlign: 'center',
+    color: 'grey',
+  },
+  footerText: {
+    fontSize: 16,
+    textAlign: 'center',
+    color: 'grey',
+  },
+});
